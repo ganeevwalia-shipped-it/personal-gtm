@@ -5,18 +5,18 @@
  * and it will:
  *   1. Read tomorrow's content calendar entries from Google Sheets
  *   2. Draft each post using Claude API (voice-matched to brand)
- *   3. Save each draft to Notion for morning review
+ *   3. Save each draft as a markdown file for morning review
  *
  * Usage:
  *   npm run draft              # drafts for tomorrow
  *   npm run draft -- --date 2026-03-20  # drafts for a specific date
- *   npm run draft -- --dry-run          # preview without saving to Notion
+ *   npm run draft -- --dry-run          # preview without saving files
  */
 
 import "dotenv/config";
 import { getContentForDate } from "./readers/sheets.js";
 import { draftContent } from "./drafters/claude.js";
-import { saveDraft } from "./writers/notion.js";
+import { saveDraft } from "./writers/local.js";
 
 /**
  * Returns tomorrow's date as YYYY-MM-DD.
@@ -59,9 +59,6 @@ function validateEnv() {
     "GOOGLE_SERVICE_ACCOUNT_EMAIL",
     "GOOGLE_PRIVATE_KEY",
     "GOOGLE_SHEET_ID",
-    "GOOGLE_SHEET_TAB",
-    "NOTION_API_KEY",
-    "NOTION_DATABASE_ID",
   ];
 
   const missing = required.filter((key) => !process.env[key]);
@@ -79,12 +76,9 @@ async function main() {
 
   console.log(`\n=== Personal GTM Engine ===`);
   console.log(`Drafting content for: ${options.date}`);
-  if (options.dryRun) console.log("(DRY RUN — drafts will NOT be saved to Notion)\n");
+  if (options.dryRun) console.log("(DRY RUN — will print drafts but not save files)\n");
 
-  // Skip env validation in dry-run mode if we just want to test
-  if (!options.dryRun) {
-    validateEnv();
-  }
+  validateEnv();
 
   // Step 1: Pull content calendar entries from Google Sheets
   console.log("\n[1/3] Reading content calendar from Google Sheets...");
@@ -105,7 +99,7 @@ async function main() {
 
   console.log(`Found ${entries.length} item(s) to draft.\n`);
 
-  // Step 2 & 3: Draft each entry and save to Notion
+  // Step 2 & 3: Draft each entry and save
   console.log("[2/3] Drafting content with Claude...\n");
 
   let drafted = 0;
@@ -115,7 +109,6 @@ async function main() {
     console.log(`--- ${entry.brand} / ${entry.platform}: "${entry.topic}" ---`);
 
     try {
-      // Draft with Claude
       const result = await draftContent({
         apiKey: process.env.ANTHROPIC_API_KEY,
         entry,
@@ -124,19 +117,12 @@ async function main() {
       console.log(`  Drafted (${result.usage.input_tokens} in / ${result.usage.output_tokens} out tokens)`);
 
       if (options.dryRun) {
-        // In dry-run mode, just print the draft
         console.log("\n--- DRAFT ---");
         console.log(result.draft);
         console.log("--- END DRAFT ---\n");
       } else {
-        // Save to Notion
-        console.log("[3/3] Saving to Notion...");
-        await saveDraft({
-          apiKey: process.env.NOTION_API_KEY,
-          databaseId: process.env.NOTION_DATABASE_ID,
-          entry,
-          draft: result.draft,
-        });
+        console.log("[3/3] Saving draft...");
+        saveDraft({ entry, draft: result.draft });
       }
 
       drafted++;
@@ -148,9 +134,11 @@ async function main() {
     console.log();
   }
 
-  // Summary
   console.log("=== Done ===");
   console.log(`Drafted: ${drafted} | Failed: ${failed} | Total: ${entries.length}`);
+  if (!options.dryRun && drafted > 0) {
+    console.log(`\nDrafts saved to: drafts/${options.date}/`);
+  }
 }
 
 main().catch((error) => {
