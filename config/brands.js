@@ -54,6 +54,22 @@ export const brands = {
         "Bullet points",
       ],
     },
+    replies: {
+      style: [
+        "Keep it short — 1-2 sentences max",
+        "Be genuine, match the commenter's energy",
+        "If they ask a real question, give a real answer",
+        "If they share something cool, acknowledge it specifically",
+        "Don't start every reply the same way — vary your openers",
+        "Sound like you're texting a friend, not running a brand account",
+      ],
+      avoid: [
+        "'Great question!' or any filler opener",
+        "Being defensive if someone disagrees",
+        "Overly promotional replies",
+        "Replying to obvious trolls or spam",
+      ],
+    },
   },
 
   personal_life: {
